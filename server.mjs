@@ -1,6 +1,15 @@
 import express from "express";
+import { query, validationResult, body, matchedData } from "express-validator";
 
 const app = express();
+app.use(express.json());
+
+// Middleware
+const middleware = (request, response, next) => {
+	const { method, url } = request;
+	console.log(method, url);
+	next();
+};
 
 const PORT = process.env.PORT || 3000;
 
@@ -115,18 +124,96 @@ app.get("/api/users/:id", (request, response) => {
 });
 
 // Using query
-app.get("/api/users", (request, response) => {
-	console.log(request.query);
+app.get(
+	"/api/users",
+	query("filter")
+		.isString()
+		.notEmpty()
+		.withMessage("Must not be exmpty")
+		.isLength({ min: 3, max: 10 })
+		.withMessage("Must be at least 3 characters and at most 10"),
+	(request, response) => {
+		const result = validationResult(request);
+		console.log(result);
+		const {
+			query: { filter, value },
+		} = request;
 
+		if (filter && value) {
+			return response.send(
+				users.filter((user) => user[filter].includes(value))
+			);
+		}
+
+		return response.send(users);
+	}
+);
+
+// Post Request
+// Making Post Requests by using thunder client
+app.post(
+	"/api/users",
+	body("username")
+		.notEmpty()
+		.withMessage("Username cannit be empty")
+		.isLength({ min: 5, max: 32 })
+		.withMessage(
+			"Username must be at least 5 characters and at most 32 characters"
+		)
+		.isString()
+		.withMessage("Must be a string"),
+	(request, response) => {
+		const result = validationResult(request);
+		console.log(result);
+
+		if (!result.isEmpty())
+			return response.status(400).send({ errors: result.array() });
+
+		const data = matchedData(request);
+		const newUser = { id: users[users.length - 1].id + 1, ...data };
+		users.push(newUser);
+		return response.status(201).send(users);
+	}
+);
+
+// Put Request
+app.put("/api/users/:id", (request, response) => {
 	const {
-		query: { filter, value },
+		body,
+		params: { id },
 	} = request;
 
-	if (filter && value) {
-		return response.send(users.filter((user) => user[filter].includes(value)));
-	}
+	const userIndex = users.findIndex((user) => user.id === id);
+	if (userIndex === -1) return response.status(404);
+	users[userIndex] = { id: id, ...body };
+	return response.sendStatus(200);
+});
 
-	return response.send(users);
+// Patch Request
+app.patch("/api/users/:id", (request, response) => {
+	const {
+		body,
+		params: { id },
+	} = request;
+
+	const userIndex = users.findIndex((user) => {
+		return user.id === id;
+	});
+
+	users[userIndex] = { ...users[userIndex], ...body };
+	return response.sendStatus(201);
+});
+
+// Delete Request
+app.delete("/api/users/:id", (request, response) => {
+	const {
+		params: { id },
+	} = request;
+
+	const userIndex = users.findIndex((user) => user.id === id);
+	if (userIndex === -1) return response.sendStatus(404);
+	users.splice(userIndex, 1);
+	return response.sendStatus(200);
 });
 
 app.listen(PORT, () => {
