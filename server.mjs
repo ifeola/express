@@ -1,5 +1,15 @@
 import express from "express";
-import { query, validationResult, body, matchedData } from "express-validator";
+import {
+	query,
+	validationResult,
+	body,
+	matchedData,
+	checkSchema,
+} from "express-validator";
+import {
+	createUserValidationSchema,
+	createFilterValidationSchema,
+} from "./utils/validationSchemas.mjs";
 
 const app = express();
 app.use(express.json());
@@ -126,15 +136,14 @@ app.get("/api/users/:id", (request, response) => {
 // Using query
 app.get(
 	"/api/users",
-	query("filter")
-		.isString()
-		.notEmpty()
-		.withMessage("Must not be exmpty")
-		.isLength({ min: 3, max: 10 })
-		.withMessage("Must be at least 3 characters and at most 10"),
+	checkSchema(createFilterValidationSchema),
 	(request, response) => {
 		const result = validationResult(request);
 		console.log(result);
+
+		if (!result.isEmpty())
+			return response.status(400).send({ errors: result.array() });
+
 		const {
 			query: { filter, value },
 		} = request;
@@ -153,15 +162,7 @@ app.get(
 // Making Post Requests by using thunder client
 app.post(
 	"/api/users",
-	body("username")
-		.notEmpty()
-		.withMessage("Username cannit be empty")
-		.isLength({ min: 5, max: 32 })
-		.withMessage(
-			"Username must be at least 5 characters and at most 32 characters"
-		)
-		.isString()
-		.withMessage("Must be a string"),
+	checkSchema(createUserValidationSchema),
 	(request, response) => {
 		const result = validationResult(request);
 		console.log(result);
